@@ -1,10 +1,10 @@
-//board
+// Board
 let board;
 let boardWidth = 360;
 let boardHeight = 640;
 let context;
 
-//bird
+// Bird
 let birdWidth = 34;
 let birdHeight = 24;
 let birdX = boardWidth / 8;
@@ -18,7 +18,7 @@ let bird = {
     height: birdHeight
 };
 
-//pipes
+// Pipes
 let pipeArray = [];
 let pipeWidth = 64;
 let pipeHeight = 512;
@@ -28,14 +28,14 @@ let pipeY = 0;
 let topPipeImg;
 let bottomPipeImg;
 
-//physics
+// Physics
 let velocityX = -2;
 let velocityY = 0;
 let gravity = 0.4;
-let jumpStrength = -6;
 
 let gameOver = false;
 let score = 0;
+let micEnabled = false; // Prevent bird movement before mic activation
 
 window.onload = function () {
     board = document.getElementById("board");
@@ -57,23 +57,7 @@ window.onload = function () {
 
     requestAnimationFrame(update);
     setInterval(placePipes, 1500);
-    
-    // Touch Support for Mobile
-    document.addEventListener("touchstart", jump);
-    
-    // Keyboard Support for Desktop
-    document.addEventListener("keydown", function (event) {
-        if (event.code === "Space") {
-            jump();
-        }
-    });
-
-    let restartButton = document.createElement("button");
-    restartButton.innerText = "Restart";
-    restartButton.id = "restartButton";
-    restartButton.style.display = "none";
-    restartButton.onclick = function () { location.reload(); };
-    document.body.appendChild(restartButton);
+    startVoiceRecognition();
 };
 
 function update() {
@@ -84,15 +68,18 @@ function update() {
         gameOverImg.onload = function () {
             context.drawImage(gameOverImg, boardWidth / 4, boardHeight / 3, 180, 90);
         };
+
         document.getElementById("restartButton").style.display = "block";
         return;
     }
 
     context.clearRect(0, 0, board.width, board.height);
 
-    velocityY += gravity;
-    bird.y = Math.max(bird.y + velocityY, 0);
-    
+    if (micEnabled) {
+        velocityY += gravity;
+        bird.y = Math.max(bird.y + velocityY, 0);
+    }
+
     context.drawImage(birdImg, bird.x, bird.y, bird.width, bird.height);
 
     if (bird.y > board.height) gameOver = true;
@@ -117,6 +104,11 @@ function update() {
     context.fillStyle = "white";
     context.font = "45px sans-serif";
     context.fillText(score, 5, 45);
+}
+
+// Restart function
+function restartGame() {
+    location.reload();
 }
 
 function placePipes() {
@@ -152,7 +144,27 @@ function detectCollision(a, b) {
            a.y + a.height > b.y;
 }
 
-// Function for Bird Jumping
-function jump() {
-    velocityY = jumpStrength;
+function startVoiceRecognition() {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+            micEnabled = true; // Enable gravity only after mic is allowed
+            let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            let analyser = audioContext.createAnalyser();
+            let microphone = audioContext.createMediaStreamSource(stream);
+            microphone.connect(analyser);
+            analyser.fftSize = 256;
+            let bufferLength = analyser.frequencyBinCount;
+            let dataArray = new Uint8Array(bufferLength);
+
+            function analyzeAudio() {
+                analyser.getByteFrequencyData(dataArray);
+                let volume = dataArray.reduce((a, b) => a + b) / bufferLength;
+                if (volume > 60) {  // Adjusted sensitivity for better response
+                    velocityY = -4;
+                }
+                requestAnimationFrame(analyzeAudio);
+            }
+            analyzeAudio();
+        })
+        .catch(error => console.error("Microphone access denied", error));
 }
