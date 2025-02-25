@@ -68,10 +68,11 @@ function update() {
         gameOverImg.onload = function () {
             context.drawImage(gameOverImg, boardWidth / 4, boardHeight / 3, 180, 90);
         };
-
-        document.getElementById("restartButton").style.display = "block";
+    
+        document.getElementById("restartButton").style.display = "block"; // Show button
         return;
     }
+    
 
     context.clearRect(0, 0, board.width, board.height);
 
